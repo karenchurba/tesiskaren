@@ -20,7 +20,7 @@ library(RColorBrewer)
 #library(missMethyl) #Este no lo pude descargar#
 #library(minfiData) #Este no lo pude descargar#
 #library(Gviz) #Este no lo pude descargar#
-#library(DMRcate)Este no lo pude descargar#
+#library(DMRcate)Este no lo pude descargar# Este lo vamos a necesitar
 #library(stringr)#
 
 dataDirectory <- "C:/Users/Karen/Documents/Tesis"
@@ -69,7 +69,7 @@ barplot(mean_detP_sorted, las=2,
 
 #Hacer el qcreport
 qcReport(rgSet, sampNames=targets$Sample_Name, 
-         pdf="qcReport3.pdf")
+         pdf="qcReport3.pdf") #chequear los warnings
 
 ############ Normalización
 
@@ -193,7 +193,7 @@ mSetSqFlt <- dropLociWithSnps(mSetSqFlt) #elimina las sondas que pueden tener SN
 xReactiveProbes <- read.csv(file=paste(dataDirectory,
                                        "1031_CpG_sites_removed_from_MethylationEPIC_15073387_v1-0_bpm.csv",
                                        sep="/"), stringsAsFactors=FALSE)
-keep <- !(featureNames(mSetSqFlt) %in% xReactiveProbes$TargetID)
+keep <- !(featureNames(mSetSqFlt) %in% xReactiveProbes$TargetID) #ver que extrae featurenames
 table(keep) #no me cierra porque no obtuve ningún FALSE (osea no va a filtrar nada)#
 mSetSqFlt <- mSetSqFlt[keep,] 
 mSetSqFlt
@@ -311,3 +311,6 @@ sapply(rownames(DMPs)[1:4], function(cpg){
   plotCpg(getBeta(mSetSqFlt), cpg=cpg, pheno=datos_fenotipicos$MTR, ylab="Beta values")
 })
 View(datos_fenotipicos[,c("Sample_Name","MTR")])
+
+
+AAAAA
