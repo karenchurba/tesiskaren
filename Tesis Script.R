@@ -1,3 +1,14 @@
+########################################
+#objetivo:
+#Input: Tesis
+#Output: 
+#Author: karenchurba
+#Fecha creación 2024/03/01
+#Ultima modificación 2024/07/9
+#########################################
+
+#---1.Paquetes-------
+
 install.packages("BiocManager", quietly =TRUE)
 
 BiocManager::install ("minfi")
@@ -23,8 +34,11 @@ library(RColorBrewer)
 #library(DMRcate)Este no lo pude descargar# Este lo vamos a necesitar
 #library(stringr)#
 
-dataDirectory <- "C:/Users/Karen/Documents/Tesis"
 
+#---2. Import Data-------
+
+
+dataDirectory <- "C:/Users/Karen/Documents/Tesis"
 #list.files(dataDirectory, recursive = TRUE)
 
 #Eliminar objeto del environment
@@ -33,17 +47,18 @@ dataDirectory <- "C:/Users/Karen/Documents/Tesis"
 ##Obtener la información de sitios de metilación de genoma humano y guardarla en ann450k
 ann450k <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19) #chequear si necesitamos cambiar este paquete por uno que se corresponda con las sondas que usaron#
 
-###Leer el sample sheet y guardar la info en Targets
+#---2.1 Leer el sample sheet y guardar la info en Targets-----
+
 targets <- read.metharray.sheet(dataDirectory, pattern="Scorza_Project_001_Sample_Sheet.csv")
 
 #sum(targets$Sample_Plate=="Tube") para contar la cantidad de filas que dicen "tube"#
 
-#Leer los datos de los IDAT y guardarlos en rgSet
+#---2.2 Leer los datos de los IDAT y guardarlos en rgSet-------
 
 rgSet <- read.metharray.exp(dataDirectory,recursive=TRUE)
 
 
-###### QUALITY CONTROL
+#---3.0 QUALITY CONTROL-------
 
 #Calcular los p-valores de detección para cada sitio cg de cada muestra - en detP cada columna es una muestra y cada fila un sitio cg
 detP <- detectionP(rgSet)
@@ -71,7 +86,8 @@ barplot(mean_detP_sorted, las=2,
 qcReport(rgSet, sampNames=targets$Sample_Name, 
          pdf="qcReport3.pdf") #chequear los warnings
 
-############ Normalización
+
+#---4.0 NORMALIZACION-------############ 
 
 mSetSq <- preprocessQuantile(rgSet)
 mSetRaw <- preprocessRaw(rgSet)
@@ -87,7 +103,8 @@ densityPlot(getBeta(mSetSq), sampGroups=targets$Sample_Name,
 rm(mSetRaw);gc()     
 
 
-#######Exploración de los datos#
+#---5. EXPLORACIÓN-------
+#---5.1 MDS-------
 sample_names <- targets$Sample_Name
 
 Matriz_met<-getM(mSetSq) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado mSetSq)#
@@ -106,8 +123,7 @@ plotMDS(Matriz_metF, top=1000, gene.selection="common")
 # Para examinar otras dimensiones y buscar otras fuentes de variación#
 plotMDS(Matriz_metF, top=1000, gene.selection="common", dim=c(1,3))
 
-
-###########PCA
+#---5.2 PCA-------
 
 install.packages("ggplot2")
 library(ggplot2)
@@ -176,8 +192,8 @@ ggplot(pca_df, aes(x = PC1, y = PC2, label = Sample_Name)) +
 
 
 
-
-#######Filtrado# - hacer nuevamente MDS y PCA después
+#---6. FILTRADO-------
+#hacer nuevamente MDS y PCA después
 detP <- detP[match(featureNames(mSetSq),rownames(detP)),] 
 head(detP)
 
@@ -198,7 +214,7 @@ table(keep) #no me cierra porque no obtuve ningún FALSE (osea no va a filtrar n
 mSetSqFlt <- mSetSqFlt[keep,] 
 mSetSqFlt
 
-#Hacer de nuevo el MDS 
+#---7. EXPLORACION POST-FILTRADO-------
 Matriz_met_Flt<-getM(mSetSqFlt) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado Y FILTRADO mSetSqFlt)#
 colnames(Matriz_met_Flt) <- sample_names #¿Cómo sé que se asignó correctamente a cada muestra el nomrbe que le corresponde?#
 Matriz_met_Flt<- Matriz_met_Flt[,colnames(Matriz_met_Flt)!="NA10858_2"] #Eliminar el NA#
@@ -270,8 +286,8 @@ ggplot(pca_df, aes(x = PC1, y = PC2, label = Sample_Name)) +
        y = paste0("PC2 (", round(summary(pca_result)$importance[2, 2] * 100, 2), "%)")) 
 
 
+#---8. ANÁLISIS DE METILACIÓN DIFERENCIAL POR SONDA-------
 
-######Análisis de metilación diferencial por sonda
 
 # Crear el factor de interés (MTR)
 MTR <- factor(datos_fenotipicos$MTR)
@@ -314,3 +330,4 @@ View(datos_fenotipicos[,c("Sample_Name","MTR")])
 
 
 AAAAA
+
