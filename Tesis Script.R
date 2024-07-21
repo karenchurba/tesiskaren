@@ -4,7 +4,7 @@
 #Output: 
 #Author: karenchurba
 #Fecha creación 2024/03/01
-#Ultima modificación 2024/07/9
+#Ultima modificación 2024/07/17
 #########################################
 
 #---1.Paquetes-------
@@ -107,8 +107,14 @@ head(Matriz_met)
 #--5.1.1 Nombres de las muestras a la matriz----
 sample_names <- targets$Sample_Name
 
+Nombres_originales_columnasMatriz <- colnames(Matriz_met)
 colnames(Matriz_met) <- sample_names #¿Cómo sé que se asignó correctamente a cada muestra el nomrbe que le corresponde?#
 #head(Matriz_met) 
+
+#tabla de comparación de los nombres antes y después
+comparison_table_version1 <- data.frame(Archivo = Nombres_originales_columnasMatriz, Muestra = colnames(Matriz_met))
+
+
 
 Matriz_metF<- Matriz_met[,colnames(Matriz_met)!="NA10858_2"] #Eliminar el NA#
 
@@ -142,7 +148,7 @@ ggplot(pca_df, aes(x = PC1, y = PC2, label = Sample_Name)) +
        y = paste0("PC2 (", round(summary(pca_result)$importance[2, 2] * 100, 2), "%)")) 
 
 
-#Para ver los influence scores de PC1----
+#Para ver los influence scores de PC1---
 
 #Extraer los scores del PC1
 #pc1_scores <- pca_result$x[, "PC1"]

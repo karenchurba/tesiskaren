@@ -1,9 +1,9 @@
-#1.1 IMPORT DATA----
+#1.1 IMPORT DATA y lectura de IDAT----
 
 dataDirectory <- "C:/Users/Karen/Documents/Tesis"
 targets <- read.metharray.sheet(dataDirectory, pattern="Scorza_Project_001_Sample_Sheet.csv")
 rgSet <- read.metharray.exp(dataDirectory,recursive=TRUE)
-detP <- detectionP(rgSet)
+detP <- detectionP(rgSet) 
 
 #1.2 Poner a detP los nombres de las muestras----
 # Paso 1: Extraer los nombres de las muestras desde targets
@@ -31,6 +31,8 @@ print(colnames(detP))
 mSetSq <- preprocessQuantile(rgSet)
 
 #2.1 Renombrar las columnas de mSetSq para que sean los nombres de las muestras----
+
+original_column_names <- colnames(mSetSq)
 # Verificar que las columnas de mSetSq coincidan con los nombres generados
 if (all(column_names %in% colnames(mSetSq))) {
   # Ordenar los nombres de las muestras según el orden de las columnas en mSetSq
@@ -44,7 +46,8 @@ if (all(column_names %in% colnames(mSetSq))) {
 # Comprobar los nombres de las columnas de mSetSq
 print(colnames(mSetSq))
 
-
+#tabla de comparación de los nombres antes y después
+comparison_table <- data.frame(Archivo = original_column_names, Muestra = colnames(mSetSq))
 
 
 #3. Filtrado----
@@ -76,3 +79,18 @@ colores_muestras_usadas_array <- muestra_colores_array[colnames(Matriz_met_Flt)]
 plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas_array)
 
 legend("topright", inset=c(-0.3, 0), legend=names(colores_array), fill=colores_array, title="Array", xpd=TRUE)
+
+#7.2 MDS: Agregar color por grupo MTR-------
+
+
+#definir paleta de colores#
+colores <- c("1" = "red", "0" = "blue")                          
+
+#Crear un vector de colores asociando cada muestra a su grupo MTR#
+muestra_colores <- colores[as.character(datos_fenotipicos$MTR)]
+names(muestra_colores) <- datos_fenotipicos$Sample_Name
+#Asegurarse de que los nombres de las muestras en 'Matriz_met_Flt' coincidan con 'muestra_colores'#
+colores_muestras_usadas <- muestra_colores[colnames(Matriz_met_Flt)]
+#Genera el gráfico MDS con las muestras coloreadas según su grupo y añade una leyenda para identificar los grupos#
+plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas)
+legend("topright", legend=c("1", "0"), fill=c("red", "blue"), title="MTR")
