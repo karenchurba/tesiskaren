@@ -16,6 +16,7 @@
 #install.packages("RCurl")
 #install.packages("GenomicRanges")
 #install.packages("GenomeInfoDb")#
+#BiocManager::install("DMRcate", update = TRUE)
 
 library(minfi)
 library(knitr)
@@ -25,9 +26,17 @@ library(IlluminaHumanMethylationEPICmanifest)
 library(RColorBrewer)
 #library(missMethyl) #Este no lo pude descargar#
 #library(minfiData) #Este no lo pude descargar#
-#library(Gviz) #Este no lo pude descargar#
-#library(DMRcate)Este no lo pude descargar# Este lo vamos a necesitar
+#library(Gviz) #Este no lo pude descargar# este quizás lo usemos
+library(DMRcate)
 #library(stringr)#
+
+if (!("devtools" %in% installed.packages()[, "Package"])) {
+  install.packages("devtools")
+}
+devtools::install_github("markgene/maxprobes")
+
+
+library(maxprobes) #No me funcionó
 
 
 #-2. Import Data-------
@@ -61,9 +70,26 @@ detP <- detectionP(rgSet)
 #dim(detP)#
 
 #2.3.1 Nombres de las muestras a las columnas de detP---- 
-targets$Slide_Array <- apply(targets[,c("Slide","Array")],MARGIN = 1,FUN = paste,collapse="_")
-colnames(detP)<- targets$Sample_Name
-#head(detP)#
+# Paso 1: Extraer los nombres de las muestras desde targets
+sample_names <- targets$Sample_Name
+
+# Paso 2: Crear los nombres de las columnas combinando "Slide" y "Array" con un guion bajo
+column_names <- paste(targets$Slide, targets$Array, sep="_")
+
+# Paso 3: Renombrar las columnas de detP
+# Verificar que las columnas de detP coincidan con los nombres generados
+if (all(column_names %in% colnames(detP))) {
+  # Ordenar los nombres de las muestras según el orden de las columnas en detP
+  sample_names_ordered <- sample_names[match(colnames(detP), column_names)]
+  # Renombrar las columnas de detP con los nombres de las muestras
+  colnames(detP) <- sample_names_ordered
+} else {
+  stop("Los nombres de las columnas generados no coinciden con los nombres de las columnas en detP")
+}
+
+# Comprobar los nombres de las columnas de detP
+print(colnames(detP))
+
 
 
 #3.0 QUALITY CONTROL-------
@@ -98,23 +124,40 @@ densityPlot(getBeta(mSetSq), sampGroups=targets$Sample_Name,
             main="Normalized", legend=FALSE) 
 rm(mSetRaw);gc()     
 
+#--5.1.1 Nombres de las muestras a mSetSq----
+original_column_names <- colnames(mSetSq)
+# Verificar que las columnas de mSetSq coincidan con los nombres generados
+if (all(column_names %in% colnames(mSetSq))) {
+  # Ordenar los nombres de las muestras según el orden de las columnas en mSetSq
+  sample_names_ordered <- sample_names[match(colnames(mSetSq), column_names)]
+  # Renombrar las columnas de mSetSq con los nombres de las muestras
+  colnames(mSetSq) <- sample_names_ordered
+} else {
+  stop("Los nombres de las columnas generados no coinciden con los nombres de las columnas en mSetSq")
+}
+
+# Comprobar los nombres de las columnas de mSetSq
+print(colnames(mSetSq))
+
+#tabla de comparación de los nombres antes y después
+comparison_table <- data.frame(Archivo = original_column_names, Muestra = colnames(mSetSq))
+
+# Verifica los nombres de las muestras en el objeto mSetSq
+sample_names_mset <- sampleNames(mSetSq)
+print(sample_names_mset)
+
+# ELIMINAR EL NA
+#Encuentra el índice de la muestra que deseas eliminar
+index_to_remove <- which(sample_names_mset == "NA10858_2")
+
+# Elimina la muestra del objeto mSetSq
+mSetSq <- mSetSq[ , -index_to_remove]
+
 
 #---5. EXPLORACIÓN-------
 #5.1 MDS-------
 Matriz_met<-getM(mSetSq) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado mSetSq)#
 head(Matriz_met)
-
-#--5.1.1 Nombres de las muestras a la matriz----
-sample_names <- targets$Sample_Name
-
-Nombres_originales_columnasMatriz <- colnames(Matriz_met)
-colnames(Matriz_met) <- sample_names #¿Cómo sé que se asignó correctamente a cada muestra el nomrbe que le corresponde?#
-#head(Matriz_met) 
-
-#tabla de comparación de los nombres antes y después
-comparison_table_version1 <- data.frame(Archivo = Nombres_originales_columnasMatriz, Muestra = colnames(Matriz_met))
-
-
 
 Matriz_metF<- Matriz_met[,colnames(Matriz_met)!="NA10858_2"] #Eliminar el NA#
 
@@ -123,7 +166,7 @@ Matriz_metF<- Matriz_met[,colnames(Matriz_met)!="NA10858_2"] #Eliminar el NA#
 plotMDS(Matriz_metF, top=1000, gene.selection="common")  
 
 # Para examinar otras dimensiones y buscar otras fuentes de variación#
-plotMDS(Matriz_metF, top=1000, gene.selection="common", dim=c(1,3))
+#plotMDS(Matriz_metF, top=1000, gene.selection="common", dim=c(1,3))
 
 #5.2 PCA-------
 
@@ -194,6 +237,7 @@ ggplot(pca_df, aes(x = PC1, y = PC2, label = Sample_Name)) +
 
 
 
+
 #---6. FILTRADO-------
 detP <- detP[match(featureNames(mSetSq),rownames(detP)),] 
 head(detP)
@@ -217,16 +261,77 @@ head(xReactiveProbes)
 head(featureNames(mSetSqFlt))
 
 
+#6.1 Prueba: filtrado por CpGs no-variables----
+# Obtener los valores beta de la matriz de datos normalizados y filtrados
+betaVals <- getBeta(mSetSqFlt)
+
+# Calcular el rango interpercentil (percentil 90 - percentil 10) para cada CpG
+interpercentile_range <- apply(betaVals, 1, function(x) {
+  quantile(x, 0.90) - quantile(x, 0.10)
+})
+
+
+dim()
+#Visualizar cantidad de sitios por quantil en histograma
+hist(interpercentile_range , breaks = 100 ) 
+abline(v=0.05, col="blue")
+
+# Definir el umbral del 5%
+threshold <- 0.05
+
+# Identificar los CpGs no variables
+non_variable_cpgs <- rownames(betaVals)[which(interpercentile_range < threshold)]
+length(non_variable_cpgs) # Ver cuántos CpGs son no variables
+
+# Crear una matriz de datos filtrada que excluye los CpGs no variables
+filtered_betaVals <- betaVals[!rownames(betaVals) %in% non_variable_cpgs, ]
+
+
+# Verificar las dimensiones de la matriz filtrada
+dim(filtered_betaVals)
+
+# Filtrar el objeto mSetSqFlt para excluir los CpGs no variables
+mSetSqFlt <- mSetSqFlt[!rownames(mSetSqFlt) %in% non_variable_cpgs,]
+
+# Verificar las dimensiones del objeto filtrado
+dim(mSetSqFlt)
+Matriz_met_Flt<-getM(mSetSqFlt)
+dim(Matriz_met_Flt)
+
+
+#6.1.1 opcional: importar cpgs no variables de estudio previo---- 
+#OJO: este estudio fue hecho cpara 450k
+#library(RCurl)
+#x <- getURL("https://raw.githubusercontent.com/redgar598/Tissue_Invariable_450K_CpGs/master/Invariant_Placenta_CpGs.csv")
+#y <- read.csv(text = x)
+#nonvariable_placenta<-y$CpG
+
+# Convertir ambas listas a conjuntos
+#set_non_variable_cpgs <- as.character(non_variable_cpgs)
+#set_nonvariable_placenta <- as.character(nonvariable_placenta)
+
+# Encontrar los CpGs no variables en común
+#common_non_variable_cpgs <- intersect(set_non_variable_cpgs, set_nonvariable_placenta) 
+
+# Ver cuántos CpGs no variables hay en común
+#length(common_non_variable_cpgs)
+#head(common_non_variable_cpgs)
+
+# Filtrar la matriz de datos excluyendo los CpGs no variables en común
+#Matriz_met_Flt <- Matriz_met_Flt[!rownames(Matriz_met_Flt) %in% common_non_variable_cpgs, ]
+
+
 #---7. EXPLORACION POST-FILTRADO-------
 Matriz_met_Flt<-getM(mSetSqFlt) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado Y FILTRADO mSetSqFlt)#
-colnames(Matriz_met_Flt) <- sample_names #¿Cómo sé que se asignó correctamente a cada muestra el nomrbe que le corresponde?#
-Matriz_met_Flt<- Matriz_met_Flt[,colnames(Matriz_met_Flt)!="NA10858_2"] #Eliminar el NA#
+
 plotMDS(Matriz_met_Flt, top=1000, gene.selection="common")  
 
 rm(Matriz_met);gc()
 
+
 #7.1 Carga de los datos fenotípicos----
 datos_fenotipicos <- read.csv("C:/Users/Karen/Documents/Tesis/datos_fenotipicos.csv")
+
 # Identificar las filas que tienen duplicados
 filas_duplicadas <- datos_fenotipicos[!is.na(datos_fenotipicos$ID.Illumina.de.duplicados...Barcode) &
                                         !is.na(datos_fenotipicos$ID.Illumina.de.duplicados...Sentrix), ]
@@ -244,14 +349,14 @@ datos_fenotipicos <- rbind(datos_fenotipicos, filas_duplicadas_nuevas)
 # Renombrar columnas para facilitar el merge
 names(datos_fenotipicos)[names(datos_fenotipicos) == "ID.Illumina...Barcode"] <- "Array"
 names(datos_fenotipicos)[names(datos_fenotipicos) == "ID.Illumina...Sentrix"] <- "Slide"
+
 # Hacer el merge para agregar el Sample_Name
 merged_data <- merge(datos_fenotipicos, targets[, c("Array", "Slide", "Sample_Name")], by = c("Array", "Slide"))
 datos_fenotipicos <- merged_data
 
 
-rm(filas_duplicadas);gc() #Se pueden ppner varias cosas dentro del rm()
-rm(filas_duplicadas_nuevas);gc() 
-rm(merged_data);gc() 
+rm(filas_duplicadas,filas_duplicadas_nuevas,merged_data);gc() 
+
 #7.2 MDS: Agregar color por grupo MTR-------
 
 
@@ -279,7 +384,6 @@ legend("center", legend = c("Grupo 1", "Grupo 0"), fill = c("red", "blue"), titl
 par(mar = c(5, 4, 4, 2) + 0.1) # Resetear margenes para el gráfico MDS
 plotMDS(Matriz_met_Flt, top = 1000, gene.selection = "common", col = colores_muestras_usadas)
 
-table(datos_fenotipicos$Array) #probar pintar con su array a cada muestra#
 
 #7.3 MDS: Agregar color por grupo ARRAY-------
 colores_array <- c("R01C01" = "red", "R02C01" = "blue", "R03C01" = "green", 
@@ -296,6 +400,40 @@ colores_muestras_usadas_array <- muestra_colores_array[colnames(Matriz_met_Flt)]
 plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas_array)
 
 legend("topright", inset=c(-0.3, 0), legend=names(colores_array), fill=colores_array, title="Array", xpd=TRUE)
+
+#7.3 MDS: Agregar color por grupo slide----
+colores_slide <- c("206960650083" = "red", 
+                   "206960650086" = "blue", 
+                   "206960650112" = "green", 
+                   "206960650116" = "purple", 
+                   "206960650123" = "orange")
+
+# Crear un vector de colores asociando cada muestra a su grupo Slide
+muestra_colores_slide <- colores_slide[as.character(datos_fenotipicos$Slide)]
+names(muestra_colores_slide) <- datos_fenotipicos$Sample_Name
+
+# Asegurarse de que los nombres de las muestras en 'Matriz_met_Flt' coincidan con 'muestra_colores_slide'
+colores_muestras_usadas_slide <- muestra_colores_slide[colnames(Matriz_met_Flt)]
+
+# Generar el gráfico MDS con las muestras coloreadas según su grupo de Slide y añadir una leyenda para identificar los grupos
+plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas_slide)
+legend("topright", legend=names(colores_slide), fill=colores_slide, title="Slide")
+#7.3 MDS: Agregar color por ACE score----
+
+# Definir una paleta de colores para los grupos de ACE.score
+colores_ace <- c("0" = "red", "1" = "blue", "2" = "green", "3" = "purple", "4" = "orange", "5" = "pink", "6" = "brown")
+
+# Crear un vector de colores asociando cada muestra a su grupo ACE.score
+muestra_colores_ace <- colores_ace[as.character(datos_fenotipicos$ACE.score)]
+names(muestra_colores_ace) <- datos_fenotipicos$Sample_Name
+
+# Asegurarse de que los nombres de las muestras en 'Matriz_met_Flt' coincidan con 'muestra_colores_ace'
+colores_muestras_usadas_ace <- muestra_colores_ace[colnames(Matriz_met_Flt)]
+
+# Generar el gráfico MDS con las muestras coloreadas según su grupo ACE.score y añadir una leyenda para identificar los grupos
+plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas_ace)
+legend("topright", legend=names(colores_ace), fill=colores_ace, title="ACE.score")
+
 
 #7.4 PCA post filtrado-------
 pca_result <- prcomp(t(Matriz_met_Flt), scale. = TRUE)
@@ -321,10 +459,12 @@ design <- model.matrix(~0 + MTR)
 colnames(design) <- c("Nivel0", "Nivel1")
 print(design)
 #print(dim(design))
-
+dim(Matriz_met_Flt)
+dim(design)
 # Ajustar el modelo lineal
 fit <- lmFit(Matriz_met_Flt, design)
-colnames(Matriz_met_Flt)
+
+
 print(fit)
 # Crear una matriz de contrastes para la comparación de interés (por ejemplo, MTR 1 vs MTR 0)
 contMatrix <- makeContrasts(Nivel1 - Nivel0, levels=design)
@@ -334,13 +474,16 @@ contMatrix
 fit2 <- contrasts.fit(fit, contMatrix)
 fit2 <- eBayes(fit2)
 
+
 # Resumen de los resultados
 summary(decideTests(fit2))
 
+
 # Obtener la tabla de resultados para el contraste especificado
-ann450kSub <- ann450k[match(rownames(Matriz_met_Flt), ann450k$Name), c(1:4, 12:19, 24:ncol(ann450k))]
-DMPs <- topTable(fit2, num=Inf, coef=1, genelist=ann450kSub)
+annEPICSub <- annEPIC[match(rownames(Matriz_met_Flt), annEPIC$Name), c(1:4, 12:19, 24:ncol(annEPIC))]
+DMPs <- topTable(fit2, num=Inf, coef=1, genelist=annEPICSub)
 head(DMPs)
+
 
 # Guardar los resultados en un archivo CSV
 write.table(DMPs, file="DMPs.csv", sep=",", row.names=FALSE)
@@ -351,6 +494,9 @@ sapply(rownames(DMPs)[1:4], function(cpg){
   plotCpg(getBeta(mSetSqFlt), cpg=cpg, pheno=datos_fenotipicos$MTR, ylab="Beta values")
 })
 View(datos_fenotipicos[,c("Sample_Name","MTR")])
+
+
+
 
 
 
