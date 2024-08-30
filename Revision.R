@@ -94,3 +94,21 @@ colores_muestras_usadas <- muestra_colores[colnames(Matriz_met_Flt)]
 #Genera el gráfico MDS con las muestras coloreadas según su grupo y añade una leyenda para identificar los grupos#
 plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas)
 legend("topright", legend=c("1", "0"), fill=c("red", "blue"), title="MTR")
+
+#7.3 MDS: Agregar color por grupo slide----
+colores_slide <- c("206960650083" = "red", 
+                   "206960650086" = "blue", 
+                   "206960650112" = "green", 
+                   "206960650116" = "purple", 
+                   "206960650123" = "orange")
+
+# Crear un vector de colores asociando cada muestra a su grupo Slide
+muestra_colores_slide <- colores_slide[as.character(datos_fenotipicos$Slide)]
+names(muestra_colores_slide) <- datos_fenotipicos$Sample_Name
+
+# Asegurarse de que los nombres de las muestras en 'Matriz_met_Flt' coincidan con 'muestra_colores_slide'
+colores_muestras_usadas_slide <- muestra_colores_slide[colnames(Matriz_met_Flt)]
+
+# Generar el gráfico MDS con las muestras coloreadas según su grupo de Slide y añadir una leyenda para identificar los grupos
+plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas_slide)
+legend("topright", legend=names(colores_slide), fill=colores_slide, title="Slide")
