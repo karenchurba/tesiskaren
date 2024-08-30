@@ -38,9 +38,12 @@ devtools::install_github("markgene/maxprobes")
 
 library(maxprobes) #No me funcionó
 
+BiocManager::install("EpiDISH")
+
+library(EpiDISH)
 
 #-2. Import Data-------
-
+setwd("C:/Users/Karen/Documents/Tesis")
 
 dataDirectory <- "C:/Users/Karen/Documents/Tesis"
 #list.files(dataDirectory, recursive = TRUE)
@@ -140,11 +143,11 @@ if (all(column_names %in% colnames(mSetSq))) {
 print(colnames(mSetSq))
 
 #tabla de comparación de los nombres antes y después
-comparison_table <- data.frame(Archivo = original_column_names, Muestra = colnames(mSetSq))
+#comparison_table <- data.frame(Archivo = original_column_names, Muestra = colnames(mSetSq))
 
 # Verifica los nombres de las muestras en el objeto mSetSq
 sample_names_mset <- sampleNames(mSetSq)
-print(sample_names_mset)
+#print(sample_names_mset)
 
 # ELIMINAR EL NA
 #Encuentra el índice de la muestra que deseas eliminar
@@ -158,8 +161,6 @@ mSetSq <- mSetSq[ , -index_to_remove]
 #5.1 MDS-------
 Matriz_met<-getM(mSetSq) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado mSetSq)#
 head(Matriz_met)
-
-Matriz_metF<- Matriz_met[,colnames(Matriz_met)!="NA10858_2"] #Eliminar el NA#
 
 #pal <- brewer.pal(8,"Dark2") define la paleta de colores#
 
@@ -239,8 +240,11 @@ ggplot(pca_df, aes(x = PC1, y = PC2, label = Sample_Name)) +
 
 
 #---6. FILTRADO-------
-detP <- detP[match(featureNames(mSetSq),rownames(detP)),] 
+detP <- detP[match(featureNames(mSetSq),rownames(detP)),] #Mantiene en detP sólo la información de las sondas que están también en mSetSq (que es el archivo que estaba normalizado)
+
 head(detP)
+ncol(detP)
+detP<- detP[,colnames(detP)!="NA10858_2"] #Eliminar el NA de detP#
 
 keep <- rowSums(detP < 0.01) == ncol(mSetSq) 
 table(keep)
@@ -260,8 +264,14 @@ mSetSqFlt
 head(xReactiveProbes)
 head(featureNames(mSetSqFlt))
 
+#6.1 filtrado de sondas en cromosomas sexuales----
+# if your data includes males and females, remove probes on the sex chromosomes
+keep <- !(featureNames(mSetSqFlt) %in% annEPIC$Name[annEPIC$chr %in% 
+                                                      c("chrX","chrY")])
+table(keep)
+mSetSqFlt <- mSetSqFlt[keep,]
 
-#6.1 Prueba: filtrado por CpGs no-variables----
+#6.2 Prueba: filtrado por CpGs no-variables----
 # Obtener los valores beta de la matriz de datos normalizados y filtrados
 betaVals <- getBeta(mSetSqFlt)
 
@@ -299,7 +309,7 @@ Matriz_met_Flt<-getM(mSetSqFlt)
 dim(Matriz_met_Flt)
 
 
-#6.1.1 opcional: importar cpgs no variables de estudio previo---- 
+#6.2.1 opcional: importar cpgs no variables de estudio previo---- 
 #OJO: este estudio fue hecho cpara 450k
 #library(RCurl)
 #x <- getURL("https://raw.githubusercontent.com/redgar598/Tissue_Invariable_450K_CpGs/master/Invariant_Placenta_CpGs.csv")
@@ -320,6 +330,16 @@ dim(Matriz_met_Flt)
 # Filtrar la matriz de datos excluyendo los CpGs no variables en común
 #Matriz_met_Flt <- Matriz_met_Flt[!rownames(Matriz_met_Flt) %in% common_non_variable_cpgs, ]
 
+#6.3 filtrado Funcional: nos quedamos con sondas de promotores---- 
+#table(annEPIC$Regulatory_Feature_Group) #Para ver los niveles que toma Regulatory_f_group
+# selección de las sondas que están en promotores
+sondas_promotores <- annEPIC$Name[annEPIC$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")]
+
+# Filtrar la matriz de metilación (Matriz_met_Flt) para quedarte solo con las sondas en promotores
+Matriz_met_Flt <- Matriz_met_Flt[rownames(Matriz_met_Flt) %in% sondas_promotores, ]
+
+# Verificar las dimensiones después del filtrado
+dim(Matriz_met_Flt)
 
 #---7. EXPLORACION POST-FILTRADO-------
 Matriz_met_Flt<-getM(mSetSqFlt) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado Y FILTRADO mSetSqFlt)#
@@ -448,7 +468,27 @@ ggplot(pca_df, aes(x = PC1, y = PC2, label = Sample_Name)) +
 
 
 
-#---8. ANÁLISIS DE METILACIÓN DIFERENCIAL POR SONDA-------
+#---9. Identificación de fracciones de tipos celulares-------
+data(centEpiFibIC.m)
+
+# Estimación de las fracciones de tipos celulares
+resultado <- epidish(beta.m = Matriz_met_Flt, ref.m = centEpiFibIC.m, method = "RPC")
+
+# Fracciones estimadas de tipos celulares
+print(resultado$estF)
+
+# Dimensiones de la matriz de referencia usada
+print(dim(resultado$ref))
+
+# Dimensiones de la matriz de datos usada para la estimación
+print(dim(resultado$dataREF))
+
+data(centBloodSub.m)
+frac.m <- hepidish(beta.m = Matriz_met_Flt, ref1.m = centEpiFibIC.m, ref2.m = centBloodSub.m, h.CT.idx = 3, method = 'RPC')
+summary(frac.m)
+apply(frac.m , 2 , sd)
+
+#---9. ANÁLISIS DE METILACIÓN DIFERENCIAL POR SONDA-------
 
 
 # Crear el factor de interés (MTR)
@@ -502,3 +542,4 @@ View(datos_fenotipicos[,c("Sample_Name","MTR")])
 
 
 
+ 
