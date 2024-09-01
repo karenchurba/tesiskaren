@@ -30,15 +30,13 @@ library(RColorBrewer)
 library(DMRcate)
 #library(stringr)#
 
-if (!("devtools" %in% installed.packages()[, "Package"])) {
+if (!("dif (!("dif (!("devtools" %in% installed.packages()[, "Package"])) {
   install.packages("devtools")
 }
 devtools::install_github("markgene/maxprobes")
 
 
 library(maxprobes) #No me funcionó
-
-BiocManager::install("EpiDISH")
 
 library(EpiDISH)
 
@@ -52,7 +50,8 @@ dataDirectory <- "C:/Users/Karen/Documents/Tesis"
 #rm(mSetRaw);gc()
 
 ##Obtener la información de sitios de metilación de genoma humano y guardarla en annEPIC
-annEPIC <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19) #chequear si necesitamos cambiar este paquete por uno que se corresponda con las sondas que usaron#
+annEPIC <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
+
 
 #2.1 Leer el sample sheet y guardar la info en Targets-----
 
@@ -90,9 +89,11 @@ if (all(column_names %in% colnames(detP))) {
   stop("Los nombres de las columnas generados no coinciden con los nombres de las columnas en detP")
 }
 
-# Comprobar los nombres de las columnas de detP
 print(colnames(detP))
 
+# Eliminar el NA
+index_to_remove <- which(sample_names == "NA10858_2")
+detP <- detP[ , -index_to_remove]
 
 
 #3.0 QUALITY CONTROL-------
@@ -146,7 +147,7 @@ print(colnames(mSetSq))
 #comparison_table <- data.frame(Archivo = original_column_names, Muestra = colnames(mSetSq))
 
 # Verifica los nombres de las muestras en el objeto mSetSq
-sample_names_mset <- sampleNames(mSetSq)
+#sample_names_mset <- sampleNames(mSetSq)
 #print(sample_names_mset)
 
 # ELIMINAR EL NA
@@ -164,7 +165,7 @@ head(Matriz_met)
 
 #pal <- brewer.pal(8,"Dark2") define la paleta de colores#
 
-plotMDS(Matriz_metF, top=1000, gene.selection="common")  
+plotMDS(Matriz_met, top=1000, gene.selection="common")  
 
 # Para examinar otras dimensiones y buscar otras fuentes de variación#
 #plotMDS(Matriz_metF, top=1000, gene.selection="common", dim=c(1,3))
@@ -264,6 +265,7 @@ mSetSqFlt
 head(xReactiveProbes)
 head(featureNames(mSetSqFlt))
 
+rm(xReactiveProbes);gc() 
 #6.1 filtrado de sondas en cromosomas sexuales----
 # if your data includes males and females, remove probes on the sex chromosomes
 keep <- !(featureNames(mSetSqFlt) %in% annEPIC$Name[annEPIC$chr %in% 
@@ -308,6 +310,10 @@ dim(mSetSqFlt)
 Matriz_met_Flt<-getM(mSetSqFlt)
 dim(Matriz_met_Flt)
 
+rm(interpercentile_range);gc() 
+rm(non_variable_cpgs , filtered_betaVals);gc() 
+
+
 
 #6.2.1 opcional: importar cpgs no variables de estudio previo---- 
 #OJO: este estudio fue hecho cpara 450k
@@ -330,6 +336,27 @@ dim(Matriz_met_Flt)
 # Filtrar la matriz de datos excluyendo los CpGs no variables en común
 #Matriz_met_Flt <- Matriz_met_Flt[!rownames(Matriz_met_Flt) %in% common_non_variable_cpgs, ]
 
+#---9. Identificación de fracciones de tipos celulares-------
+Matriz_met_Flt<-getM(mSetSqFlt)
+data(centEpiFibIC.m)
+
+# Estimación de las fracciones de tipos celulares
+resultado <- epidish(beta.m = Matriz_met_Flt, ref.m = centEpiFibIC.m, method = "RPC")
+
+# Fracciones estimadas de tipos celulares
+print(resultado$estF)
+
+# Dimensiones de la matriz de referencia usada
+print(dim(resultado$ref))
+
+# Dimensiones de la matriz de datos usada para la estimación
+print(dim(resultado$dataREF))
+
+data(centBloodSub.m)
+frac.m <- hepidish(beta.m = Matriz_met_Flt, ref1.m = centEpiFibIC.m, ref2.m = centBloodSub.m, h.CT.idx = 3, method = 'RPC')
+summary(frac.m)
+apply(frac.m , 2 , sd)
+
 #6.3 filtrado Funcional: nos quedamos con sondas de promotores---- 
 #table(annEPIC$Regulatory_Feature_Group) #Para ver los niveles que toma Regulatory_f_group
 # selección de las sondas que están en promotores
@@ -340,6 +367,8 @@ Matriz_met_Flt <- Matriz_met_Flt[rownames(Matriz_met_Flt) %in% sondas_promotores
 
 # Verificar las dimensiones después del filtrado
 dim(Matriz_met_Flt)
+
+rm(sondas_promotores);gc() 
 
 #---7. EXPLORACION POST-FILTRADO-------
 Matriz_met_Flt<-getM(mSetSqFlt) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado Y FILTRADO mSetSqFlt)#
@@ -404,7 +433,7 @@ legend("center", legend = c("Grupo 1", "Grupo 0"), fill = c("red", "blue"), titl
 par(mar = c(5, 4, 4, 2) + 0.1) # Resetear margenes para el gráfico MDS
 plotMDS(Matriz_met_Flt, top = 1000, gene.selection = "common", col = colores_muestras_usadas)
 
-
+rm(colores_muestras_usadas , muestra_colores);gc()
 #7.3 MDS: Agregar color por grupo ARRAY-------
 colores_array <- c("R01C01" = "red", "R02C01" = "blue", "R03C01" = "green", 
                    "R04C01" = "purple", "R05C01" = "orange", "R06C01" = "brown", 
@@ -421,6 +450,7 @@ plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_
 
 legend("topright", inset=c(-0.3, 0), legend=names(colores_array), fill=colores_array, title="Array", xpd=TRUE)
 
+rm(colores_array , muestra_colores_array , colores_muestras_usadas_array);gc()
 #7.3 MDS: Agregar color por grupo slide----
 colores_slide <- c("206960650083" = "red", 
                    "206960650086" = "blue", 
@@ -454,6 +484,7 @@ colores_muestras_usadas_ace <- muestra_colores_ace[colnames(Matriz_met_Flt)]
 plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas_ace)
 legend("topright", legend=names(colores_ace), fill=colores_ace, title="ACE.score")
 
+rm(colores_ace,muestra_colores_ace,colores_muestras_usadas_ace);gc() 
 
 #7.4 PCA post filtrado-------
 pca_result <- prcomp(t(Matriz_met_Flt), scale. = TRUE)
@@ -466,29 +497,11 @@ ggplot(pca_df, aes(x = PC1, y = PC2, label = Sample_Name)) +
        x = paste0("PC1 (", round(summary(pca_result)$importance[2, 1] * 100, 2), "%)"),
        y = paste0("PC2 (", round(summary(pca_result)$importance[2, 2] * 100, 2), "%)")) 
 
+rm(pca_result,pca_df);gc() 
 
 
-#---9. Identificación de fracciones de tipos celulares-------
-data(centEpiFibIC.m)
 
-# Estimación de las fracciones de tipos celulares
-resultado <- epidish(beta.m = Matriz_met_Flt, ref.m = centEpiFibIC.m, method = "RPC")
-
-# Fracciones estimadas de tipos celulares
-print(resultado$estF)
-
-# Dimensiones de la matriz de referencia usada
-print(dim(resultado$ref))
-
-# Dimensiones de la matriz de datos usada para la estimación
-print(dim(resultado$dataREF))
-
-data(centBloodSub.m)
-frac.m <- hepidish(beta.m = Matriz_met_Flt, ref1.m = centEpiFibIC.m, ref2.m = centBloodSub.m, h.CT.idx = 3, method = 'RPC')
-summary(frac.m)
-apply(frac.m , 2 , sd)
-
-#---9. ANÁLISIS DE METILACIÓN DIFERENCIAL POR SONDA-------
+#---10. ANÁLISIS DE METILACIÓN DIFERENCIAL POR SONDA-------
 
 
 # Crear el factor de interés (MTR)
