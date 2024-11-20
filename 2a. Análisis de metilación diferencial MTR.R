@@ -129,7 +129,7 @@ str(DMPs)
 head(DMPs)
 
 # Guardar los resultados en un archivo CSV
-write.table(DMPs, file="DMPs.csv", sep=",", row.names=FALSE)
+write.table(DMPs, file="DMPs2.csv", sep=",", row.names=FALSE)
 
 # Filtrar DMPs con p-valor ajustado menor a 0.1
 significant_DMPs <- DMPs[DMPs$adj.P.Val < 0.1, ]

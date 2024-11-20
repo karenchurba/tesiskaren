@@ -397,23 +397,8 @@ dim(Matriz_met_Flt)
 dim(mSetSqFlt)
 rm(sondas_promotores);gc() 
 
-#6.4 Eliminar duplicados----
-mSetSqFlt <- mSetSqFlt[, !colnames(mSetSqFlt) %in% c("29_2", "33_2", "17_2")]
-dim(mSetSqFlt)
-#Eliminar duplicados de datos fenotipicos
-datos_fenotipicos_completa <- subset(datos_fenotipicos_completa, !Muestra.Metiloma %in% c("29_2", "33_2", "17_2"))
-
-
-#---7. EXPLORACION POST-FILTRADO-------
-#Matriz_met_Flt<-getM(mSetSqFlt) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado Y FILTRADO mSetSqFlt)#
-
-plotMDS(Matriz_met_Flt, top=1000, gene.selection="common")  
-
-rm(Matriz_met);gc()
-
-
 #7.1 Carga de los datos fenotípicos----
-datos_fenotipicos <- read.csv("C:/Users/Karen/Documents/Tesis/Datos fenotípicos completa.csv")
+datos_fenotipicos <- read.csv("C:/Users/Karen/Documents/Tesis/datos_fenotipicos.csv")
 
 # Identificar las filas que tienen duplicados
 filas_duplicadas <- datos_fenotipicos[!is.na(datos_fenotipicos$ID.Illumina.de.duplicados...Barcode) &
@@ -439,6 +424,21 @@ datos_fenotipicos <- merged_data
 
 
 rm(filas_duplicadas,filas_duplicadas_nuevas,merged_data);gc() 
+
+#7.2 Eliminar duplicados----
+mSetSqFlt <- mSetSqFlt[, !colnames(mSetSqFlt) %in% c("29_2", "33_2", "17_2")]
+dim(mSetSqFlt)
+#Eliminar duplicados de datos fenotipicos
+datos_fenotipicos <- subset(datos_fenotipicos, !Sample_Name %in% c("29_2", "33_2", "17_2"))
+
+#---7. EXPLORACION POST-FILTRADO-------
+#Matriz_met_Flt<-getM(mSetSqFlt) #devuelve una matriz que tiene los datos de metilación M para todas las sondas y muestras (usa el conjunto de datos normalizado Y FILTRADO mSetSqFlt)#
+
+plotMDS(Matriz_met_Flt, top=1000, gene.selection="common")  
+
+rm(Matriz_met);gc()
+
+
 
 #7.2 MDS: Agregar color por grupo MTR-------
 
@@ -543,6 +543,9 @@ save(datos_fenotipicos, Matriz_met_Flt, mSetSqFlt, file = "preprocesados.RData")
 
 
 
+
+#######A partir de acá ya se continúa en el script "2a. Analisis de metilación diferencial"####
+
 #---10. ANÁLISIS DE METILACIÓN DIFERENCIAL POR SONDA-------
 
 
@@ -593,7 +596,7 @@ sapply(rownames(DMPs)[1:4], function(cpg){
 
 
 #Guardar los objetos en un archivo-----
-save(Matriz_met_Flt, datos_fenotipicos, file = "datos_preprocesados.RData")
+save(Matriz_met_Flt, datos_fenotipicos, mSetSqFlt, file = "datos_preprocesadosMTR.RData")
 
 # En un archivo RDS
 saveRDS(list(Matriz_met_Flt = Matriz_met_Flt, datos_fenotipicos = datos_fenotipicos), file = "preprocesamiento_datos.rds")
