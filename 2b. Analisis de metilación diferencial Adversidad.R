@@ -35,6 +35,7 @@ devtools::install_github("markgene/maxprobes")
 library(maxprobes) #No me funcionó
 
 library(EpiDISH)
+library("VennDiagram") 
 
 #9. cargar archivos preprocesados----
 setwd("C:/Users/Karen/Documents/Tesis")
@@ -98,8 +99,12 @@ write.table(DMPs, file="DMPs_adversidad.csv", sep=",", row.names=FALSE)
 
 
 #---11.1 Identificacion de DMRs----
+#Generar fx para asignar IDs a los DMRs siguiendo esta estructura: comparación_cromosoma_start_end
+generate_ID <- function(gr, comparison) {
+  paste0(comparison, "_", seqnames(gr), "_", start(gr), "_", end(gr))
+}
 #---11.1AC Adversidad A vs C----
-myAnnotation <- cpg.annotate(
+myAnnotationAC <- cpg.annotate(
   object = Matriz_met_Flt, 
   datatype = "array", 
   what = "M", 
@@ -113,17 +118,21 @@ myAnnotation <- cpg.annotate(
 
 str(myAnnotation)
 # Identificar DMRs 
-DMRs <- dmrcate(myAnnotation, lambda = 1000, C = 2, pcutoff = 0.1)
+DMRsAC <- dmrcate(myAnnotationAC, lambda = 1000, C = 2, pcutoff = 0.05)
 #DMRs$results
-str(DMRs)
-length(DMRs@min_smoothed_fdr)
+length(DMRsAC@min_smoothed_fdr)
 sort(DMRs@min_smoothed_fdr)
-# Extraer los resultados
-results.ranges <- extractRanges(DMRs)
-results.ranges
 
+# Extraer los resultados
+results.rangesAC <- extractRanges(DMRsAC)
+length(results.rangesAC)
+
+#Agrego ID a los DMRs 
+mcols(results.rangesAC)$ID <- generate_ID(results.rangesAC, "AC")
+head(results.rangesAC)
 #guardar los resultados en un excel
-write.table(results.ranges, file="DMRs_GrupoAvsC.csv", sep=";", row.names=FALSE)
+write.table(results.rangesAC, file="DMRs_GrupoAvsC.csv", sep=";", row.names=FALSE)
+
 #---11.1BC Adversidad B vs C----
 myAnnotationBC <- cpg.annotate(
   object = Matriz_met_Flt, 
@@ -137,16 +146,19 @@ myAnnotationBC <- cpg.annotate(
   arraytype = "EPIC")
 #fdr=0.7)
 
-str(myAnnotationBC)
+#str(myAnnotationBC)
 # Identificar DMRs 
 DMRsBC <- dmrcate(myAnnotationBC, lambda = 1000, C = 2, pcutoff = 0.05)
 #DMRs$results
 str(DMRsBC)
 length(DMRsBC@min_smoothed_fdr)
-sort(DMRsBC@min_smoothed_fdr)
+
 # Extraer los resultados
 results.rangesBC <- extractRanges(DMRsBC)
-results.rangesBC
+length(results.rangesBC)
+#Agregar ID
+mcols(results.rangesBC)$ID <- generate_ID(results.rangesBC, "BC")
+head(results.rangesBC)
 
 #guardar los resultados en un excel
 write.table(results.rangesBC, file="DMRs_GrupoBvsC.csv", sep=";", row.names=FALSE)
@@ -165,19 +177,21 @@ myAnnotationBA <- cpg.annotate(
   arraytype = "EPIC")
 #fdr=0.7)
 
-str(myAnnotationBA)
+
 # Identificar DMRs 
 DMRsBA <- dmrcate(myAnnotationBA, lambda = 1000, C = 2, pcutoff = 0.05)
-#DMRs$results
-str(DMRsBA)
+
+#str(DMRsBA)
 length(DMRsBA@min_smoothed_fdr)
 sort(DMRsBA@min_smoothed_fdr)
+
 # Extraer los resultados
 results.rangesBA <- extractRanges(DMRsBA)
-results.rangesBA
+
+mcols(results.rangesBA)$ID <- generate_ID(results.rangesBA, "BA")
 
 #guardar los resultados en un excel
-write.table(results.rangesBA, file="DMRs_GrupoAvsB.csv", sep=";", row.names=FALSE)
+write.table(results.rangesBA, file="DMRs_GrupoAB.csv", sep=";", row.names=FALSE)
 
 #11.2 graficar DMRs----
 # indicar el genoma
@@ -353,6 +367,136 @@ DMRplot2 <- function(TablaDMRs, dmrIndex, zoomout1, zoomout2) {
   plotTracks(tracks, from = minbase, to = maxbase, showTitle = TRUE, add53 = TRUE, 
              add35 = TRUE, grid = TRUE, lty.grid = 3, sizes = sizes)
 }
+#11.2 Graficar DMRs----
+DMRplot2(TablaDMRs=results.rangesBA , dmrIndex = 67, zoomout1 = 1 , zoomout2 = 0.5)
 
-DMRplot2(TablaDMRs=results.rangesBC , dmrIndex = 5, zoomout1 = 5 , zoomout2 = 5)
 
+#12. Comparación entre DMRs
+#12.1 Diagramas de Venn----
+
+genesAC <- unique(unlist(strsplit(as.character(results.rangesAC$overlapping.genes), ";")))
+genesBC <- unique(unlist(strsplit(as.character(results.rangesBC$overlapping.genes), ";")))
+genesBA <- unique(unlist(strsplit(as.character(results.rangesBA$overlapping.genes), ";")))
+genesAC <- na.omit(genesAC)
+genesBC <- na.omit(genesBC)
+genesBA <- na.omit(genesBA)
+
+grid.newpage() 
+venn.plot <- draw.triple.venn(
+  area1 = length(genesAC),
+  area2 = length(genesBC),
+  area3 = length(genesBA),
+  n12 = length(intersect(genesAC, genesBC)),
+  n23 = length(intersect(genesBC, genesBA)),
+  n13 = length(intersect(genesAC, genesBA)),
+  n123 = length(Reduce(intersect, list(genesAC, genesBC, genesBA))),
+  category = c("AC", "BC", "BA"),
+  col = c("red", "blue", "green"),
+  fill = c("lightpink", "lightblue", "lightgreen"),
+  cex = 1.5,
+  cat.cex = 1.2,
+  cat.pos = c(-20, 20, -90)
+)
+
+#versión 2: separando los genes que corresponden a un mismo DMR----
+genesAC <- unique(unlist(strsplit(as.character(results.rangesAC$overlapping.genes), split = ",\\s*")))
+genesBC <- unique(unlist(strsplit(as.character(results.rangesBC$overlapping.genes), split = ",\\s*")))
+genesBA <- unique(unlist(strsplit(as.character(results.rangesBA$overlapping.genes), split = ",\\s*")))
+genesAC <- na.omit(genesAC)
+genesBC <- na.omit(genesBC)
+genesBA <- na.omit(genesBA)
+grid.newpage()
+venn.plot <- draw.triple.venn(
+  area1 = length(genesAC),
+  area2 = length(genesBC),
+  area3 = length(genesBA),
+  n12 = length(intersect(genesAC, genesBC)),
+  n23 = length(intersect(genesBC, genesBA)),
+  n13 = length(intersect(genesAC, genesBA)),
+  n123 = length(Reduce(intersect, list(genesAC, genesBC, genesBA))),
+  category = c("AC", "BC", "BA"),
+  col = c("red", "blue", "green"),
+  fill = c("lightpink", "lightblue", "lightgreen"),
+  cex = 1.5,
+  cat.cex = 1.2,
+  cat.pos = c(-20, 20, -90)
+)
+
+
+#versión 3: con los porcentajes----
+
+library(ggvenn)
+
+# Crear un data frame con la lista completa de genes y en qué comparaciones aparecen 
+all_genes <- unique(c(genesAC, genesBC, genesBA)) 
+venn_data <- data.frame(
+  Gene = all_genes,
+  AC = all_genes %in% genesAC,
+  BC = all_genes %in% genesBC,
+  BA = all_genes %in% genesBA
+)
+#head(venn_data)
+
+# Convertir a formato tibble para ggvenn
+library(tibble)
+venn_data_tibble <- as_tibble(venn_data)
+
+# Crear el gráfico de Venn
+ggvenn(
+  data = venn_data_tibble,
+  columns = c("AC", "BC", "BA"),
+  show_percentage = TRUE,  
+  fill_color = c("lightpink", "lightblue", "lightgreen"),
+  stroke_size = 0.5,
+  set_name_size = 4,
+  text_size = 2.5
+)
+?ggvenn
+
+###Obtener la tabla de los genes en cada comparación----
+
+gene_comparison_table <- data.frame(
+  Gene = all_genes,
+  AC = all_genes %in% genesAC,
+  BC = all_genes %in% genesBC,
+  BA = all_genes %in% genesBA
+)
+
+# Crear una columna que indique en qué comparaciones está cada gen
+gene_comparison_table$Comparaciones <- apply(gene_comparison_table[, 2:4], 1, function(x) {
+  comparaciones <- names(x)[x]
+  paste(comparaciones, collapse = "_")
+})
+
+head(gene_comparison_table)
+#guardar los resultados en un excel
+write.table(gene_comparison_table, file="comparacion genes por grupo.csv", sep=";", row.names=FALSE)
+
+
+# Encontrar superposiciones de posiciones DMRs entre las tres tablas----
+overlaps_AC_BA <- findOverlaps(results.rangesAC, results.rangesBA)
+overlaps_AC_BC <- findOverlaps(results.rangesAC, results.rangesBC)
+overlaps_BA_BC <- findOverlaps(results.rangesBA, results.rangesBC)
+
+# DMRs compartidos
+dmrs_AC_BA <- results.rangesAC[queryHits(overlaps_AC_BA)]
+dmrs_BA_AC <- results.rangesBA[subjectHits(overlaps_AC_BA)]
+length(dmrs_AC_BA@seqnames)
+length(dmrs_BA_AC@seqnames)
+
+dmrs_AC_BC <- results.rangesAC[queryHits(overlaps_AC_BC)]
+dmrs_BC_AC <- results.rangesBC[subjectHits(overlaps_AC_BC)]
+length(dmrs_AC_BC@seqnames)
+length(dmrs_BC_AC@seqnames)
+
+dmrs_BA_BC <- results.rangesBA[queryHits(overlaps_BA_BC)]
+dmrs_BC_BA <- results.rangesBC[subjectHits(overlaps_BA_BC)]
+length(dmrs_BA_BC@seqnames)
+length(dmrs_BC_BA@seqnames)
+
+# Unifico en un solo GRanges con todos los DMRs compartidos
+dmrs_comparacion <- reduce(c(dmrs_AC_BA, dmrs_BA_AC, dmrs_AC_BC, dmrs_BC_AC, dmrs_BA_BC, dmrs_BC_BA))
+
+# resultados
+dmrs_comparacion
+write.table(dmrs_comparacion, file="DMRs_comparacion.csv", sep=";", row.names=FALSE)
