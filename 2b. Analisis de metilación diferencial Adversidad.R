@@ -44,36 +44,35 @@ load("preprocesadosAdversidad.RData")
 pal <- brewer.pal(8,"Dark2")
 
 ##Obtener la información de sitios de metilación de genoma humano y guardarla en annEPIC
-annEPIC <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
+#annEPIC <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
 
 betaVals <- getBeta(mSetSqFlt)
 
 #---10. ANÁLISIS DE METILACIÓN DIFERENCIAL POR SONDA-------
 
-#Eliminar duplicados de datos fenotipicos - YA LO HICE EN EL PREPROCESAMIENTO
-#datos_fenotipicos_completa <- subset(datos_fenotipicos_completa, !Muestra.Metiloma %in% c("29_2", "33_2", "17_2"))
-
 # Crear el factor de interés (Adversidad)
-Adversidad <- factor(datos_fenotipicos_completa$Grupo.según.tipo.de.adversidad)
+Adversidad <- factor(datos_fenotipicos$Grupo.según.tipo.de.adversidad)
 #levels(Adversidad) <- c("A", "B","C")
 
 # Crear una matriz de diseño
-design <- model.matrix(~0 + Adversidad, data=datos_fenotipicos_completa)
-
+design <- model.matrix(~0 + Adversidad, data=datos_fenotipicos)
+rownames(design) <- datos_fenotipicos$Muestra.Metiloma
 colnames(design) <- c("A", "B", "C")
 print(design)
-dim(Matriz_met_Flt)
-dim(design)
+
+#dim(Matriz_met_Flt)
+#dim(design)
+
 # Ajustar el modelo lineal
 fit <- lmFit(Matriz_met_Flt, design)
 
-
 print(fit)
+
 # Crear una matriz de contrastes para la comparación de interés (por ejemplo, MTR 1 vs MTR 0)
 contMatrix <- makeContrasts(
-  A - B,  # Contraste entre grupo adversidad 3 y 1
-  A - C,  # Contraste entre grupo adversidad 6 y 0
-  B - C,  # Contraste entre grupo adversidad 4 y 0
+  A - B,  # Contraste entre grupo adversidad A y B
+  A - C,  # Contraste entre grupo adversidad A y C
+  B - C,  # Contraste entre grupo adversidad B y C
   levels = design
 )
 
@@ -89,11 +88,13 @@ summary(decideTests(fit2))
 annEPICSub <- annEPIC[match(rownames(Matriz_met_Flt), annEPIC$Name), c(1:4, 12:19, 24:ncol(annEPIC))]
 DMPs <- topTable(fit2, num=Inf, coef=1, genelist=annEPICSub)
 head(DMPs)
+
 # Graficar los 4 sitios CpG más significativamente diferenciados
 par(mfrow=c(2,2))
 sapply(rownames(DMPs)[1:4], function(cpg){
-  plotCpg(getBeta(mSetSqFlt), cpg=cpg, pheno=datos_fenotipicos_completa$Grupo.según.tipo.de.adversidad, ylab="Beta values")
+  plotCpg(getBeta(mSetSqFlt), cpg=cpg, pheno=datos_fenotipicos$Grupo.según.tipo.de.adversidad, ylab="Beta values")
 })
+
 # Guardar los resultados en un archivo CSV
 write.table(DMPs, file="DMPs_adversidad.csv", sep=",", row.names=FALSE)
 
@@ -103,6 +104,7 @@ write.table(DMPs, file="DMPs_adversidad.csv", sep=",", row.names=FALSE)
 generate_ID <- function(gr, comparison) {
   paste0(comparison, "_", seqnames(gr), "_", start(gr), "_", end(gr))
 }
+
 #---11.1AC Adversidad A vs C----
 myAnnotationAC <- cpg.annotate(
   object = Matriz_met_Flt, 
@@ -116,12 +118,12 @@ myAnnotationAC <- cpg.annotate(
   arraytype = "EPIC")
 #fdr=0.7)
 
-str(myAnnotation)
+str(myAnnotationAC)
 # Identificar DMRs 
 DMRsAC <- dmrcate(myAnnotationAC, lambda = 1000, C = 2, pcutoff = 0.05)
-#DMRs$results
+
 length(DMRsAC@min_smoothed_fdr)
-sort(DMRs@min_smoothed_fdr)
+sort(DMRsAC@min_smoothed_fdr)
 
 # Extraer los resultados
 results.rangesAC <- extractRanges(DMRsAC)
@@ -130,8 +132,10 @@ length(results.rangesAC)
 #Agrego ID a los DMRs 
 mcols(results.rangesAC)$ID <- generate_ID(results.rangesAC, "AC")
 head(results.rangesAC)
-#guardar los resultados en un excel
-write.table(results.rangesAC, file="DMRs_GrupoAvsC.csv", sep=";", row.names=FALSE)
+
+#guardar los resultados para los grupos A vs C en un archivo CSV. Cada fila representa un DMR#
+write.table(results.rangesAC, file="DMRs_GrupoAvsC.csv", sep=";", row.names=FALSE) 
+
 
 #---11.1BC Adversidad B vs C----
 myAnnotationBC <- cpg.annotate(
@@ -160,7 +164,7 @@ length(results.rangesBC)
 mcols(results.rangesBC)$ID <- generate_ID(results.rangesBC, "BC")
 head(results.rangesBC)
 
-#guardar los resultados en un excel
+#guardar los resultados para los grupos B vs C en un archivo CSV. Cada fila representa un DMR#
 write.table(results.rangesBC, file="DMRs_GrupoBvsC.csv", sep=";", row.names=FALSE)
 
 
@@ -190,7 +194,7 @@ results.rangesBA <- extractRanges(DMRsBA)
 
 mcols(results.rangesBA)$ID <- generate_ID(results.rangesBA, "BA")
 
-#guardar los resultados en un excel
+#guardar los resultados para los grupos A vs B en un archivo CSV. Cada fila representa un DMR#
 write.table(results.rangesBA, file="DMRs_GrupoAB.csv", sep=";", row.names=FALSE)
 
 #11.2 graficar DMRs----
@@ -477,6 +481,9 @@ write.table(gene_comparison_table, file="comparacion genes por grupo.csv", sep="
 overlaps_AC_BA <- findOverlaps(results.rangesAC, results.rangesBA)
 overlaps_AC_BC <- findOverlaps(results.rangesAC, results.rangesBC)
 overlaps_BA_BC <- findOverlaps(results.rangesBA, results.rangesBC)
+#Hits: superposiciones encontradas entre los DMRs 
+#queryHits: Índices de los DMRs en el primer objeto que tienen superposiciones.
+#subjectHits: Índices de los DMRs en el segundo objeto que se superponen con los del primer objeto.
 
 # DMRs compartidos
 dmrs_AC_BA <- results.rangesAC[queryHits(overlaps_AC_BA)]
@@ -495,8 +502,39 @@ length(dmrs_BA_BC@seqnames)
 length(dmrs_BC_BA@seqnames)
 
 # Unifico en un solo GRanges con todos los DMRs compartidos
-dmrs_comparacion <- reduce(c(dmrs_AC_BA, dmrs_BA_AC, dmrs_AC_BC, dmrs_BC_AC, dmrs_BA_BC, dmrs_BC_BA))
+dmrs_comparacion_red <- reduce(c(dmrs_AC_BA, dmrs_BA_AC, dmrs_AC_BC, dmrs_BC_AC, dmrs_BA_BC, dmrs_BC_BA))
 
 # resultados
 dmrs_comparacion
-write.table(dmrs_comparacion, file="DMRs_comparacion.csv", sep=";", row.names=FALSE)
+write.table(dmrs_comparacion_red, file="DMRs_comparacion_red.csv", sep=";", row.names=FALSE)
+
+
+#13.metilación-apego----
+#datos_fenotipicos$Grupo.según.tipo.de.adversidad <- as.factor(datos_fenotipicos$Grupo.según.tipo.de.adversidad)
+#datos_fenotipicos$ATTACHMENT <- as.factor(datos_fenotipicos$ATTACHMENT)
+
+design <- model.matrix(~ ATTACHMENT + Adversidad + ATTACHMENT:Adversidad, data = datos_fenotipicos)
+rownames(design) <- datos_fenotipicos$Muestra.Metiloma
+Matriz_met_Flt <- Matriz_met_Flt[, rownames(design)]
+
+fit <- lmFit(Matriz_met_Flt, design)
+fit <- eBayes(fit)
+topTable(fit, coef = "AdversidadC", adjust = "fdr")
+summary(fit)
+fit
+# Crear una matriz de contrastes para la comparación de interés (por ejemplo, MTR 1 vs MTR 0)
+contMatrix <- makeContrasts(
+  ATTACHMENT0 - AdversidadC,  # Contraste entre grupo adversidad 3 y 1
+  ATTACHMENT1 - C,  # Contraste entre grupo adversidad 6 y 0
+  B - C,  # Contraste entre grupo adversidad 4 y 0
+  levels = design
+)
+
+
+# Ajustar los contrastes
+fit2 <- contrasts.fit(fit, contMatrix)
+fit2 <- eBayes(fit2)
+
+summary(decideTests(fit2))
+
+

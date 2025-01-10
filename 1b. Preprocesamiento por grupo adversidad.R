@@ -1,5 +1,5 @@
 ########################################
-#objetivo: 
+#objetivo: Preparar datos fenotípicos y de metilación para el análisis
 #Input: Tesis
 #Output: preprocesados_2.RData (datos_fenotípicos + Matriz_Met_Flt + mSetSqFlt)
 #Author: karenchurba
@@ -18,9 +18,10 @@
 #install.packages("GenomeInfoDb")#
 #BiocManager::install("DMRcate", update = TRUE)
 #if (!require("BiocManager", quietly = TRUE))
-install.packages("BiocManager")
-
+#install.packages("BiocManager")
 #BiocManager::install("Gviz")
+#install.packages("futile.logger")               
+
 
 
 library(minfi)
@@ -58,8 +59,7 @@ dataDirectory <- "C:/Users/Karen/Documents/Tesis"
 ##Obtener la información de sitios de metilación de genoma humano y guardarla en annEPIC
 annEPIC <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
 #2.1 Carga de los datos fenotípicos----
-datos_fenotipicos_completa <- read.csv("C:/Users/Karen/Documents/Tesis/Datos fenotípicos completa.csv")
-
+datos_fenotipicos <- read.csv("C:/Users/Karen/Documents/Tesis/Datos fenotipicos completa.csv")
 
 #2.1 Leer el sample sheet y guardar la info en Targets-----
 
@@ -86,7 +86,7 @@ if (all(column_names %in% colnames(rgSet))) {
   # Renombrar las columnas de detP con los nombres de las muestras
   colnames(rgSet) <- sample_names_ordered
 } else {
-  stop("Los nombres de las columnas generados no coinciden con los nombres de las columnas en rgSet")
+  stop("Los nombres generados no coinciden con rgSet. Revisa 'targets'.")
 }
 
 print(colnames(rgSet))
@@ -121,14 +121,14 @@ densityPlot(getBeta(mSetSq), sampGroups=targets$Sample_Name,
 rm(mSetRaw);gc()     
 
 #5.Eliminar duplicados----
-muestras_duplicadas <- c("29_1", "33_1", "17_1")
+muestras_duplicadas <- c("29_2", "33_2", "17_2")
 
-
+#Eliminar duplicados de mSetSq
 mSetSq <- mSetSq[, !colnames(mSetSq) %in% muestras_duplicadas]
 dim(mSetSq)
 #Eliminar duplicados de datos fenotipicos
-datos_fenotipicos_completa <- subset(datos_fenotipicos_completa, !Muestra.Metiloma %in% muestras_duplicadas)
-dim(datos_fenotipicos_completa)
+datos_fenotipicos <- subset(datos_fenotipicos, !Muestra.Metiloma %in% muestras_duplicadas)
+dim(datos_fenotipicos)
 
 #Eliminar duplicados de detP
 detP <- detP[, !colnames(detP) %in% muestras_duplicadas]
@@ -152,8 +152,8 @@ plotMDS(Matriz_met, top=1000, gene.selection="common")
 colores_grupo <- c("A" = "red", "B" = "blue", "C" = "green")
 
 # Crear un vector de colores asociando cada muestra a su grupo adversidad
-muestra_colores_grupo <- colores_grupo[as.character(datos_fenotipicos_completa$Grupo.según.tipo.de.adversidad)]
-names(muestra_colores_grupo) <- datos_fenotipicos_completa$Muestra.Metiloma
+muestra_colores_grupo <- colores_grupo[as.character(datos_fenotipicos$Grupo.según.tipo.de.adversidad)]
+names(muestra_colores_grupo) <- datos_fenotipicos$Muestra.Metiloma
 
 # Asegurarse de que los nombres de las muestras en 'Matriz_met_Flt' coincidan con 'muestra_colores_grupo'
 colores_muestras_usadas_grupo<- muestra_colores_grupo[colnames(Matriz_met)]
@@ -163,43 +163,45 @@ plotMDS(Matriz_met, top=1000, gene.selection="common", col=colores_muestras_usad
 legend("topright", legend=names(colores_grupo), fill=colores_grupo, title="grupo.adversidad")
 
 #---7. FILTRADO-------
-detP <- detP[match(featureNames(mSetSq),rownames(detP)),] #Mantiene en detP sólo la información de las sondas que están también en mSetSq (que es el archivo que estaba normalizado)
-head(detP)
-####Acá hay algo mal creo!!
+# 7.1 En este paso, se filtra detP para que contenga sólo las sondas que también están presentes en mSetSq (que tiene las muestras normalizadas):
+detP <- detP[match(featureNames(mSetSq),rownames(detP)),] 
+#para verificar algunos valores de detP
+head(detP) 
+tail(detP)
+set.seed(6) 
+detP[sample(nrow(detP),6),]
 
-featureNames(mSetSq)
-rownames(detP)
 
-colnames(mSetSq)
-
-
+# 7.2 Este paso filtra los CpGs con p-valores de detección mayores a 0.01 en todas las muestras:----
 keep <- rowSums(detP < 0.01) == ncol(mSetSq) 
 table(keep)
 
 mSetSqFlt <- mSetSq[keep,]
 
-mSetSqFlt <- dropLociWithSnps(mSetSqFlt) #elimina las sondas que pueden tener SNPs comunes que afectan el CpG
+#7.3 filtrado que elimina las sondas que pueden tener SNPs comunes que afectan el CpG----
+mSetSqFlt <- dropLociWithSnps(mSetSqFlt) 
 
-###Prueba:filtrado de dobles reactivos usando la base de datos que saqué de: https://support.illumina.com/array/array_kits/infinium-methylationepic-beadchip-kit/downloads.html
+#7.4 Prueba que no funcionó: filtrado de dobles reactivos ----
+#usando la base de datos que saqué de: https://support.illumina.com/array/array_kits/infinium-methylationepic-beadchip-kit/downloads.html
 xReactiveProbes <- read.csv(file=paste(dataDirectory,
                                        "1031_CpG_sites_removed_from_MethylationEPIC_15073387_v1-0_bpm.csv",
                                        sep="/"), stringsAsFactors=FALSE)
 keep <- !(featureNames(mSetSqFlt) %in% xReactiveProbes$TargetID) #ver que extrae featurenames
 table(keep) #no me cierra porque no obtuve ningún FALSE (osea no va a filtrar nada)#
 mSetSqFlt <- mSetSqFlt[keep,] 
-mSetSqFlt
+
 head(xReactiveProbes)
 head(featureNames(mSetSqFlt))
 
 rm(xReactiveProbes);gc() 
-#7.1 filtrado de sondas en cromosomas sexuales----
-# if your data includes males and females, remove probes on the sex chromosomes
+#7.5 filtrado de sondas en cromosomas sexuales----
+# Se eliminan las sondas de cromosomas sexuales, en caso de tener muestras de varones y mujeres 
 keep <- !(featureNames(mSetSqFlt) %in% annEPIC$Name[annEPIC$chr %in% 
                                                       c("chrX","chrY")])
 table(keep)
 mSetSqFlt <- mSetSqFlt[keep,]
 
-#7.2 Filtrado por CpGs no-variables----
+#7.6 Filtrado por CpGs no-variables----
 # Obtener los valores beta de la matriz de datos normalizados y filtrados
 betaVals <- getBeta(mSetSqFlt)
 dim(betaVals)
@@ -214,45 +216,48 @@ hist(interpercentile_range , breaks = 100 )
 abline(v=0.05, col="blue")
 
 # Definir el umbral del 5%
-threshold <- 0.05
+umbral <- 0.05
 
-# Identificar los CpGs no variables
-non_variable_cpgs <- rownames(betaVals)[which(interpercentile_range < threshold)]
-length(non_variable_cpgs) # Ver cuántos CpGs son no variables
+# Identificar los CpGs no variables (aquellos que varían entre las muestras menos menos que un 5%)
+non_variable_cpgs <- rownames(betaVals)[which(interpercentile_range < umbral)]
+length(non_variable_cpgs) 
 
-# Crear una matriz de datos filtrada que excluye los CpGs no variables
-filtered_betaVals <- betaVals[!rownames(betaVals) %in% non_variable_cpgs, ]
-
+# Filtrar la matriz Betavals para excluir los CpGs no variables
+betaVals <- betaVals[!rownames(betaVals) %in% non_variable_cpgs, ]
 
 # Verificar las dimensiones de la matriz filtrada
-dim(filtered_betaVals)
+dim(betaVals)
 
 # Filtrar el objeto mSetSqFlt para excluir los CpGs no variables
 mSetSqFlt <- mSetSqFlt[!rownames(mSetSqFlt) %in% non_variable_cpgs,]
 
 # Verificar las dimensiones del objeto filtrado
 dim(mSetSqFlt)
-Matriz_met_Flt<-getM(mSetSqFlt)
-dim(Matriz_met_Flt)
 
+#eliminar objetos que ya no usaremos más
 rm(interpercentile_range);gc() 
-rm(non_variable_cpgs , betaVals);gc() 
+rm(non_variable_cpgs);gc() 
 
 
 
-#7.3 filtrado Funcional: nos quedamos con sondas de promotores---- 
+#7.7 filtrado Funcional: nos quedamos sólo con sondas de promotores---- 
 table(annEPIC$Regulatory_Feature_Group) #Para ver los niveles que toma Regulatory_f_group
+
 # selección de las sondas que están en promotores
 sondas_promotores <- annEPIC$Name[annEPIC$Regulatory_Feature_Group %in% c("Promoter_Associated", "Promoter_Associated_Cell_type_specific")]
 
 # Filtrar la matriz de metilación (Matriz_met_Flt) y mSetSqFlt para quedarte solo con las sondas en promotores
-Matriz_met_Flt <- Matriz_met_Flt[rownames(Matriz_met_Flt) %in% sondas_promotores, ]
 mSetSqFlt <- mSetSqFlt[rownames(mSetSqFlt) %in% sondas_promotores, ]
-# Dimensiones post filtrado
-dim(Matriz_met_Flt)
-dim(mSetSqFlt)
+
+#eliminar objeto que ya no vamos a usar
 rm(sondas_promotores);gc() 
 
+#7.8 Verificar dimensiones y generar la matriz de valores M de metilación para las muestras filtradas----
+Matriz_met_Flt<-getM(mSetSqFlt)
+
+# Verificar dimensiones post filtrado
+dim(mSetSqFlt)
+dim(Matriz_met_Flt)
 
 #8 MDS: Agregar color por grupo adversidad-------
 Matriz_met_Flt<-getM(mSetSqFlt) 
@@ -260,6 +265,7 @@ head(Matriz_met_Flt)
 
 colores_muestras_usadas_grupo<- muestra_colores_grupo[colnames(Matriz_met_Flt)]
 colores_muestras_usadas_grupo
+
 # Generar el gráfico MDS con las muestras coloreadas según su grupo ACE.score y añadir una leyenda para identificar los grupos
 plotMDS(Matriz_met_Flt, top=1000, gene.selection="common", col=colores_muestras_usadas_grupo)
 legend("topright", legend=names(colores_grupo), fill=colores_grupo, title="grupo.adversidad")
@@ -267,4 +273,4 @@ legend("topright", legend=names(colores_grupo), fill=colores_grupo, title="grupo
 
 
 #9. guardar archivos en RData----
-save(datos_fenotipicos_completa, Matriz_met_Flt, mSetSqFlt, file = "preprocesadosAdversidad.RData")
+save(datos_fenotipicos, Matriz_met_Flt, mSetSqFlt, annEPIC, file = "preprocesadosAdversidad.RData")
