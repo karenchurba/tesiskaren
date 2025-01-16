@@ -8,9 +8,8 @@ Estos scripts fueron desarrollados para analizar muestras humanas de placentas c
 * Grupo B: Adversidades indirectas como divorcio, violencia contra la madre, consumo de sustancias, enfermedad mental de los padres o encarcelamiento.
 * Grupo C: Sin adversidades reportadas.
 
-Scripts disponibles
 
-**1. Preprocesamiento por Grupo de Adversidad**
+**Script 1. Preprocesamiento por Grupo de Adversidad**
 
 Archivo: 1. Preprocesamiento.R
 Objetivo: Preparar los datos fenotípicos y de metilación para el análisis diferencial. Esto incluye normalización de datos, eliminación de muestras duplicadas, filtrado de CpGs y exploración inicial de los datos.
@@ -33,7 +32,7 @@ Ejecución:
 
 
 
-**2. Análisis de Metilación Diferencial**
+**Script 2. Análisis de Metilación Diferencial**
 
 Archivo: 2. Analisis de metilación diferencial Adversidad.R
 Objetivo:
