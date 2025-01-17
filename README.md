@@ -5,7 +5,7 @@ Este repositorio contiene dos scripts principales desarrollados para el análisi
 
 Contexto del análisis
 
-Estos scripts fueron desarrollados para analizar muestras humanas de placentas con el objetivo de identificar patrones de metilación diferencial asociados con experiencias de adversidad en la infancia. Utilizan datos obtenidos mediante la tecnología Illumina EPIC array, enfocándose en CpGs vinculados a genes y secuencias regulatorias. Los grupos de adversidad se definen de acuerdo al tipo de adversidades reportadas:
+Estos scripts fueron desarrollados para analizar muestras humanas de placentas con el objetivo de identificar patrones de metilación diferencial asociados con experiencias de adversidad en la infancia. Utilizan datos obtenidos mediante la tecnología Illumina EPIC array, enfocándose en CpGs vinculados a genes y secuencias regulatorias. Las muestras se clasifican en grupos de adversidad que se definen de acuerdo al tipo de adversidades reportadas:
 * Grupo A: Adversidades directas como abuso emocional, físico o sexual, y negligencia emocional o física.
 * Grupo B: Adversidades indirectas como divorcio, violencia contra la madre, consumo de sustancias, enfermedad mental de los padres o encarcelamiento.
 * Grupo C: Sin adversidades reportadas.
