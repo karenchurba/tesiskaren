@@ -15,6 +15,7 @@ Estos scripts fueron desarrollados para analizar muestras humanas de placentas c
 **Script 1. Preprocesamiento**
 
 Archivo: 01_preprocesamiento.R
+
 Objetivo: Preparar los datos fenotípicos y de metilación para el análisis diferencial. Esto incluye normalización de datos, eliminación de muestras duplicadas, filtrado de CpGs y exploración inicial de los datos.
 
 Inputs:
@@ -38,7 +39,9 @@ Ejecución:
 **Script 2. Análisis de Metilación Diferencial**
 
 Archivo: 02_analisis_de_metilacion_diferencial_adversidad.R
+
 Objetivo:
+
 Identificar posiciones CpG y regiones diferencialmente metiladas (DMPs y DMRs) entre diferentes grupos de adversidad, y asociar estas regiones con genes relevantes.
 
 Inputs:
