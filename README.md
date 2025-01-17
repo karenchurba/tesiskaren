@@ -37,8 +37,10 @@ Ejecución:
 Archivo: 02_analisis_de_metilacion_diferencial_adversidad.R
 Objetivo:
 Identificar posiciones CpG y regiones diferencialmente metiladas (DMPs y DMRs) entre diferentes grupos de adversidad, y asociar estas regiones con genes relevantes.
+
 Inputs:
 * Archivo RData generado en el preprocesamiento: preprocesado.RData.
+
 Outputs:
 * Archivo CSV con DMPs: DMPs_adversidad.csv.
 * Archivos CSV con DMRs por comparación de grupos (e.g., DMRs_GrupoAvsC.csv).
