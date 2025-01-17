@@ -1,5 +1,6 @@
 ## README: Análisis de Metilación Diferencial
 README: Análisis de Metilación Diferencial - Proyecto Metiloma Placentas
+
 Este repositorio contiene dos scripts principales desarrollados para el análisis de metilación diferencial en datos de metilomas humanos obtenidos mediante arrays EPIC. Los scripts deben ejecutarse en orden y realizan el preprocesamiento de datos y el análisis diferencial de metilación, respectivamente.
 
 Contexto del análisis
