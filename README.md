@@ -4,6 +4,7 @@ README: Análisis de Metilación Diferencial - Proyecto Metiloma Placentas
 Este repositorio contiene dos scripts principales desarrollados para el análisis de metilación diferencial en datos de metilomas humanos obtenidos mediante arrays EPIC. Los scripts deben ejecutarse en orden y realizan el preprocesamiento de datos y el análisis diferencial de metilación, respectivamente.
 
 Contexto del análisis
+
 Estos scripts fueron desarrollados para analizar muestras humanas de placentas con el objetivo de identificar patrones de metilación diferencial asociados con experiencias de adversidad en la infancia. Utilizan datos obtenidos mediante la tecnología Illumina EPIC array, enfocándose en CpGs vinculados a genes y secuencias regulatorias. Los grupos de adversidad se definen de acuerdo al tipo de adversidades reportadas:
 * Grupo A: Adversidades directas como abuso emocional, físico o sexual, y negligencia emocional o física.
 * Grupo B: Adversidades indirectas como divorcio, violencia contra la madre, consumo de sustancias, enfermedad mental de los padres o encarcelamiento.
