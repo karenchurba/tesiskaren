@@ -36,6 +36,8 @@ Ejecución:
 
 
 
+
+
 **Script 2. Análisis de Metilación Diferencial**
 
 Archivo: 02_analisis_de_metilacion_diferencial_adversidad.R
@@ -56,6 +58,10 @@ Ejecución:
 1. Asegurarse de que el archivo preprocesado.RData esté disponible en el directorio de trabajo.
 2. Configurar el directorio de trabajo en el script.
 3. Correr el script para realizar el análisis diferencial y generar los resultados.
+
+
+
+
 
 
 
